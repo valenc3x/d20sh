@@ -97,8 +97,9 @@ run_character_init() {
     echo "Available values: ${values[*]}"
     echo ""
 
-    local -A abilities
-    local -a available_values=("${values[@]}")  # Copy of values we can modify
+    # Use separate variables instead of associative array (bash 3.2 compatibility)
+    local str_score dex_score con_score int_score wis_score cha_score
+    local available_values=("${values[@]}")  # Copy of values we can modify
 
     for ability in STR DEX CON INT WIS CHA; do
         while true; do
@@ -115,7 +116,14 @@ run_character_init() {
 
             if [[ $found_index -ge 0 ]]; then
                 # Use this value and remove it from available
-                abilities[$ability]=$score
+                case "$ability" in
+                    STR) str_score=$score ;;
+                    DEX) dex_score=$score ;;
+                    CON) con_score=$score ;;
+                    INT) int_score=$score ;;
+                    WIS) wis_score=$score ;;
+                    CHA) cha_score=$score ;;
+                esac
                 unset 'available_values[$found_index]'
                 available_values=("${available_values[@]}")  # Re-index array
                 break
@@ -148,15 +156,23 @@ run_character_init() {
         "$selected_class" \
         "$subclass" \
         "$primary_ability" \
-        "${abilities[STR]}" \
-        "${abilities[DEX]}" \
-        "${abilities[CON]}" \
-        "${abilities[INT]}" \
-        "${abilities[WIS]}" \
-        "${abilities[CHA]}"
+        "$str_score" \
+        "$dex_score" \
+        "$con_score" \
+        "$int_score" \
+        "$wis_score" \
+        "$cha_score"
 
     # Calculate and display modifier
-    local primary_score="${abilities[$primary_ability]}"
+    local primary_score=""
+    case "$primary_ability" in
+        STR) primary_score=$str_score ;;
+        DEX) primary_score=$dex_score ;;
+        CON) primary_score=$con_score ;;
+        INT) primary_score=$int_score ;;
+        WIS) primary_score=$wis_score ;;
+        CHA) primary_score=$cha_score ;;
+    esac
     local modifier=$(calculate_modifier "$primary_score")
     local formatted_mod=$(format_modifier "$modifier")
 
