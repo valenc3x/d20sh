@@ -59,21 +59,18 @@ EOF
 # Main command router
 case "${1:-help}" in
     init)
-        source "$LIB_DIR/character.sh"
-        # Character creation will be implemented in Phase 2
-        echo "Character creation coming in Phase 2..."
+        source "$LIB_DIR/init.sh"
+        run_character_init
         ;;
 
     stats)
-        source "$LIB_DIR/character.sh"
-        # Stats display will be implemented in Phase 6
-        echo "Stats display coming in Phase 6..."
+        source "$LIB_DIR/stats.sh"
+        show_character_stats
         ;;
 
     reroll)
-        source "$LIB_DIR/character.sh"
-        # Reroll will be implemented in Phase 6
-        echo "Reroll coming in Phase 6..."
+        source "$LIB_DIR/stats.sh"
+        reroll_character
         ;;
 
     roll)
