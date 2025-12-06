@@ -1,0 +1,104 @@
+#!/bin/bash
+# d20sh - D&D-inspired terminal command wrapper
+# Main CLI entry point
+
+set -e
+
+# Determine where d20sh is installed
+if [[ -n "$D20SH_LIB_DIR" ]]; then
+    LIB_DIR="$D20SH_LIB_DIR"
+elif [[ -f "$HOME/.local/share/d20sh/lib/character.sh" ]]; then
+    LIB_DIR="$HOME/.local/share/d20sh/lib"
+elif [[ -f "$(dirname "$0")/../lib/character.sh" ]]; then
+    # Running from source directory
+    LIB_DIR="$(cd "$(dirname "$0")/../lib" && pwd)"
+else
+    echo "Error: Cannot find d20sh library files" >&2
+    exit 1
+fi
+
+# Determine data directory
+if [[ -n "$D20SH_DATA_DIR" ]]; then
+    DATA_DIR="$D20SH_DATA_DIR"
+elif [[ -f "$HOME/.local/share/d20sh/data/success_messages.txt" ]]; then
+    DATA_DIR="$HOME/.local/share/d20sh/data"
+elif [[ -f "$(dirname "$0")/../data/success_messages.txt" ]]; then
+    DATA_DIR="$(cd "$(dirname "$0")/../data" && pwd)"
+else
+    echo "Error: Cannot find d20sh data files" >&2
+    exit 1
+fi
+
+# Source library files
+source "$LIB_DIR/dice.sh"
+source "$LIB_DIR/character.sh"
+
+# Show usage
+show_usage() {
+    cat << 'EOF'
+d20sh - D&D-inspired terminal command wrapper
+
+Usage:
+  d20sh init              Create a new character
+  d20sh stats             View character sheet
+  d20sh reroll            Delete and recreate character
+  d20sh roll <cmd> <alt>  Roll for command execution (used by aliases)
+  d20sh setup             Generate shell aliases
+  d20sh install           Install fancy CLI tools
+  d20sh help              Show this help message
+
+Examples:
+  d20sh init              # Create your character
+  d20sh stats             # View your stats
+  d20sh setup             # Generate aliases for your shell
+
+After setup, commands like 'cat', 'ls', 'grep' will use d20 rolls!
+EOF
+}
+
+# Main command router
+case "${1:-help}" in
+    init)
+        source "$LIB_DIR/character.sh"
+        # Character creation will be implemented in Phase 2
+        echo "Character creation coming in Phase 2..."
+        ;;
+
+    stats)
+        source "$LIB_DIR/character.sh"
+        # Stats display will be implemented in Phase 6
+        echo "Stats display coming in Phase 6..."
+        ;;
+
+    reroll)
+        source "$LIB_DIR/character.sh"
+        # Reroll will be implemented in Phase 6
+        echo "Reroll coming in Phase 6..."
+        ;;
+
+    roll)
+        # Roll wrapper will be implemented in Phase 3
+        echo "Roll wrapper coming in Phase 3..."
+        echo "Called with: $@"
+        ;;
+
+    setup)
+        # Setup will be implemented in Phase 5
+        echo "Setup coming in Phase 5..."
+        ;;
+
+    install)
+        # Install will be implemented in Phase 4
+        echo "Install coming in Phase 4..."
+        ;;
+
+    help|--help|-h)
+        show_usage
+        ;;
+
+    *)
+        echo "Unknown command: $1" >&2
+        echo "Run 'd20sh help' for usage information" >&2
+        exit 1
+        ;;
+esac

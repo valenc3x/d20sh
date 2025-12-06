@@ -1,0 +1,12 @@
+# User-specific test files
+test_character.json
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Test directories
+test/
+scratch/
