@@ -74,9 +74,10 @@ case "${1:-help}" in
         ;;
 
     roll)
-        # Roll wrapper will be implemented in Phase 3
-        echo "Roll wrapper coming in Phase 3..."
-        echo "Called with: $@"
+        shift  # Remove 'roll' from arguments
+        source "$LIB_DIR/roll.sh"
+        # First two args are basic_cmd and fancy_cmd, rest are passed through
+        roll_command "$@"
         ;;
 
     setup)
