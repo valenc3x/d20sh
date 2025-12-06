@@ -81,8 +81,8 @@ case "${1:-help}" in
         ;;
 
     setup)
-        # Setup will be implemented in Phase 5
-        echo "Setup coming in Phase 5..."
+        source "$LIB_DIR/setup.sh"
+        run_shell_setup
         ;;
 
     install)
