@@ -86,8 +86,8 @@ case "${1:-help}" in
         ;;
 
     install)
-        # Install will be implemented in Phase 4
-        echo "Install coming in Phase 4..."
+        source "$LIB_DIR/tools.sh"
+        run_tool_install
         ;;
 
     help|--help|-h)
