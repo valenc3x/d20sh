@@ -47,27 +47,6 @@ show_character_stats() {
         fi
     done
 
-    # Calculate success probability
-    local primary_score=""
-    case "$CHAR_PRIMARY_ABILITY" in
-        STR) primary_score=$CHAR_STR ;;
-        DEX) primary_score=$CHAR_DEX ;;
-        CON) primary_score=$CHAR_CON ;;
-        INT) primary_score=$CHAR_INT ;;
-        WIS) primary_score=$CHAR_WIS ;;
-        CHA) primary_score=$CHAR_CHA ;;
-    esac
-
-    local modifier=$(calculate_modifier "$primary_score")
-    local dc=15
-    local need_to_roll=$((dc - modifier))
-    local success_count=$((21 - need_to_roll))
-    local success_rate=$((success_count * 5))
-
-    echo ""
-    echo "Roll modifier: $(format_modifier $modifier)"
-    echo "DC to beat: $dc"
-    echo "Success rate: ${success_rate}% (need to roll ${need_to_roll}+)"
     echo ""
 }
 
