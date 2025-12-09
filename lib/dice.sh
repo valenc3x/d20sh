@@ -36,7 +36,7 @@ roll_4d6_drop_lowest() {
     done
 
     # Sort the array
-    IFS=$'\n' sorted=($(sort -n <<<"${rolls[*]}"))
+    IFS=$'\n' sorted=($(printf '%s\n' "${rolls[@]}" | sort -n))
     unset IFS
 
     # Sum the top 3 (drop index 0, which is the lowest)
