@@ -5,6 +5,7 @@
 source "$(dirname "${BASH_SOURCE[0]}")/dice.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/character.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/formatting.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/fatigue.sh"
 
 # Get day of week bonus
 get_day_bonus() {
@@ -49,16 +50,38 @@ roll_command() {
         return
     fi
 
+    # Check for daily reset
+    check_daily_reset
+
     # Get modifiers
     local ability_mod=$(get_primary_ability_modifier)
     local day_bonus=$(get_day_bonus)
     local day_name=$(get_day_name)
 
-    # Roll d20
-    local roll=$(roll_d20)
+    # Check if we're disadvantaged
+    local disadvantaged=false
+    if is_disadvantaged; then
+        disadvantaged=true
+    fi
+
+    # Roll d20 (with or without disadvantage)
+    local roll
+    local roll_display=""
+    if $disadvantaged; then
+        # Roll with disadvantage
+        local disadvantage_result=$(roll_d20_disadvantage)
+        local roll1=$(echo "$disadvantage_result" | cut -d: -f1 | cut -d, -f1)
+        local roll2=$(echo "$disadvantage_result" | cut -d: -f1 | cut -d, -f2)
+        roll=$(echo "$disadvantage_result" | cut -d: -f2)
+        roll_display="Roll 1: $roll1, Roll 2: $roll2 → Taking $roll"
+    else
+        roll=$(roll_d20)
+        roll_display="$roll"
+    fi
+
     local total=$((roll + ability_mod + day_bonus))
 
-    # Determine outcome
+    # Determine outcome (DC 17)
     local outcome=""
     local use_fancy=false
     local show_message=false
@@ -69,13 +92,18 @@ roll_command() {
         outcome="crit"
         use_fancy=true
         show_message=true
-    elif [[ $total -ge 13 ]]; then
+        # Natural 20 resets fatigue
+        reset_fatigue_counter
+    elif [[ $total -ge 17 ]]; then
         outcome="success"
         use_fancy=true
-    elif [[ $total -ge 11 ]]; then
-        outcome="plain"
     else
         outcome="failure"
+    fi
+
+    # Increment command counter (unless it was a nat 20, which already reset it)
+    if [[ $roll -ne 20 ]]; then
+        increment_command_count > /dev/null
     fi
 
     # Check if fancy command is available
@@ -90,15 +118,24 @@ roll_command() {
     fi
 
     # Display roll info to stderr (so it doesn't interfere with command output)
-    local total_display="$total"
+
+    # Show disadvantage warning if applicable
+    if $disadvantaged; then
+        echo "⚠️  [FATIGUED - Rolling with disadvantage]" >&2
+        echo "🎲 $roll_display" >&2
+    else
+        echo "🎲 Rolled $roll_display" >&2
+    fi
+
+    # Show modifiers and total
     if [[ $day_bonus -ne 0 ]]; then
         local day_sign=""
         if [[ $day_bonus -gt 0 ]]; then
             day_sign="+"
         fi
-        echo "🎲 Rolled $roll + $ability_mod (ability) ${day_sign}${day_bonus} ($day_name) = $total" >&2
+        echo "   + $ability_mod (ability) ${day_sign}${day_bonus} ($day_name) = $total" >&2
     else
-        echo "🎲 Rolled $roll + $ability_mod (ability) = $total" >&2
+        echo "   + $ability_mod (ability) = $total" >&2
     fi
 
     # Execute command and format output
@@ -106,11 +143,8 @@ roll_command() {
         echo "💀 Natural 1! Your senses fail you..." >&2
         command "$basic_cmd" "${cmd_args[@]}" 2>&1 | format_output "nat1" "$CHAR_PRIMARY_ABILITY"
     elif [[ "$outcome" == "failure" ]]; then
-        echo "❌ Failed (need 11+)" >&2
+        echo "❌ Failed (need 17+)" >&2
         command "$basic_cmd" "${cmd_args[@]}" 2>&1 | format_output "failure" "$CHAR_PRIMARY_ABILITY"
-    elif [[ "$outcome" == "plain" ]]; then
-        echo "😐 Barely made it (using $basic_cmd)" >&2
-        command "$basic_cmd" "${cmd_args[@]}"
     elif [[ "$outcome" == "success" ]]; then
         if $use_fancy; then
             echo "✓ Success (using $fancy_cmd)" >&2
