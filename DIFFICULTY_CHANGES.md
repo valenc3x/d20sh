@@ -12,35 +12,73 @@ This document summarizes the difficulty changes implemented to make d20sh more c
   - +2 modifier: 25% success rate (down from ~50%)
   - +3 modifier: 30% success rate (down from ~55%)
 
-### 2. Fatigue System with Inverse Prime Progression
+### 2. Three-Tier Fatigue System
 
-#### How It Works
-- Every command you run increments a counter (0-99)
-- At certain counts, you roll with **disadvantage** (2d20, take the lower result)
-- The frequency of disadvantage increases as you approach 100
-- Counter resets at 100, on Natural 20, or daily
+Your terminal gets progressively more exhausted as you use it. The fatigue system tracks your command count (0-99) and applies increasingly severe penalties.
 
-#### Disadvantage Triggers
-Commands at these counts trigger disadvantage:
+#### Fatigue Tiers
+
+**😓 Light Fatigue** (-1 to ability modifier)
+- Triggers at commands: **11, 13, 17, 19** (4 triggers)
+- Your ability modifier is reduced by 1
+- Example: +2 ability becomes +1
+
+**😰 Heavy Fatigue** (no ability modifier)
+- Triggers at commands: **22, 41, 58, 71, 82, 89** (6 triggers)
+- Your ability modifier is completely negated
+- Example: +2 ability becomes +0
+
+**💀 Exhausted** (disadvantage on rolls)
+- Triggers at commands: **94, 97, 99** (3 triggers)
+- Roll 2d20 and take the lower result
+- Most brutal penalty - your success rate drops dramatically
+
+#### Progression Feel
+
 ```
-2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53,
-57, 59, 63, 69, 71, 77, 81, 83, 87, 89, 93, 95, 97, 98
+Commands 0-10:   Fresh (no penalties)
+Commands 11-19:  Tired (4 light fatigue hits)
+Commands 20-21:  Brief respite
+Commands 22-93:  Heavy fatigue (6 hits, spread out)
+Commands 94-99:  Exhausted (3/6 commands have disadvantage)
 ```
 
-**Progression feel:**
-- Commands 0-50: Rare disadvantage (5 times)
-- Commands 51-70: Occasional disadvantage (6 times)
-- Commands 71-90: Frequent disadvantage (10 times)
-- Commands 91-99: Nearly constant disadvantage (9 times in 9 commands!)
+**Gap pattern:** The heavy fatigue triggers use a shrinking gap pattern (19 → 17 → 13 → 11 → 7 gaps), making them more frequent as you approach 90.
 
-#### Visual Indicator
-When disadvantaged, you'll see:
+#### Visual Indicators
+
+When fatigued, you'll see warnings before your roll:
+
+**Light fatigue:**
 ```
-⚠️  [FATIGUED - Rolling with disadvantage]
-🎲 Roll 1: 14, Roll 2: 8 → Taking 8
-   + 2 (ability) = 10
+😓 [Tired - Ability penalty -1]
+🎲 Rolled 14
+   + 1 (ability) = 15
 ❌ Failed (need 17+)
 ```
+
+**Heavy fatigue:**
+```
+😰 [Heavy Fatigue - No ability modifier]
+🎲 Rolled 14
+   + 0 (ability) = 14
+❌ Failed (need 17+)
+```
+
+**Exhausted:**
+```
+💀 [EXHAUSTED - Rolling with disadvantage]
+🎲 Roll 1: 18, Roll 2: 7 → Taking 7
+   + 2 (ability) = 9
+❌ Failed (need 17+)
+```
+
+#### Reset Conditions
+
+The fatigue counter resets to 0 when:
+1. **Natural 20 is rolled** - Your critical success reinvigorates you
+2. **Count reaches 100** - The cycle resets automatically
+3. **Daily** - Each new day brings fresh energy
 
 ### 3. Enhanced Bad Formatting on Failures
 
@@ -76,18 +114,11 @@ DrWXr-Xr-X 2 U5Er u53R 4096 d3C  9 20:10 L1B
 
 (Plus wrapped in awful colors based on your primary ability)
 
-### 4. Reset Conditions
-
-The fatigue counter resets to 0 when:
-1. **Natural 20 is rolled** - Your critical success reinvigorates you
-2. **Count reaches 100** - The cycle resets
-3. **Daily** - Each new day brings fresh energy
-
 ## Files Modified
 
-1. **lib/fatigue.sh** (new) - Fatigue tracking and disadvantage logic
+1. **lib/fatigue.sh** - Three-tier fatigue tracking system
 2. **lib/dice.sh** - Added `roll_d20_disadvantage()` function
-3. **lib/roll.sh** - Integrated fatigue system, updated DC, added visual warnings
+3. **lib/roll.sh** - Integrated fatigue system, updated DC to 17, tier-specific penalties
 4. **lib/formatting.sh** - Enhanced with dual mutations and character budget
 
 ## Testing
@@ -111,19 +142,36 @@ To test the new system:
    d20sh stats
    ```
 
-4. **Monitor fatigue** by running multiple commands and watching for the disadvantage warning
+4. **Monitor fatigue** by running multiple commands and watching for the fatigue warnings
 
 ## Expected Difficulty
 
-With DC 17 and the fatigue system:
-- Early commands (0-50): ~20-30% success rate
-- Mid session (51-70): ~15-25% success rate (occasional disadvantage)
-- Late session (71-90): ~10-20% success rate (frequent disadvantage)
-- End session (91-99): ~5-15% success rate (nearly constant disadvantage)
+### Success Rates by Fatigue Tier
 
-When rolling with disadvantage:
-- Your success rate drops to roughly the square of your normal rate
-- Example: 25% normal → ~6% with disadvantage
+Assuming +2 ability modifier and DC 17:
+
+**Fresh (commands 0-10):**
+- Need to roll 15+ on d20
+- Success rate: ~30%
+
+**Light Fatigue (commands 11, 13, 17, 19):**
+- +2 becomes +1, need to roll 16+
+- Success rate: ~25%
+
+**Heavy Fatigue (commands 22, 41, 58, 71, 82, 89):**
+- +2 becomes +0, need to roll 17+
+- Success rate: ~20%
+
+**Exhausted (commands 94, 97, 99):**
+- Roll with disadvantage
+- Success rate: ~4% (20% squared)
+
+### Overall Session Difficulty
+
+With DC 17 and the three-tier fatigue system:
+- **Early game (0-20):** Moderate challenge, ~25-30% success
+- **Mid game (21-93):** Harder, ~20-30% success with occasional heavy fatigue
+- **End game (94-99):** Brutal, ~4-20% success with frequent disadvantage
 
 ## Configuration
 
@@ -138,3 +186,12 @@ rm ~/.config/d20sh/fatigue.json
 ```
 
 Or wait for a Natural 20! 🎲
+
+## Design Philosophy
+
+The three-tier system provides:
+1. **Early warning** - Light fatigue at 11 lets you know the system is active
+2. **Escalating challenge** - Each tier is noticeably harder than the last
+3. **Strategic moments** - Gaps between triggers give breathing room
+4. **Dramatic finale** - Commands 94-99 are a gauntlet where disadvantage can strike at any moment
+5. **Escape valve** - Natural 20 always offers a way to reset and start fresh

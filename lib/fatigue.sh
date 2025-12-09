@@ -1,12 +1,17 @@
 #!/bin/bash
-# Fatigue system for d20sh - tracks command count and applies disadvantage
+# Fatigue system for d20sh - tracks command count and applies penalties
 
 FATIGUE_FILE="$HOME/.config/d20sh/fatigue.json"
 
-# Inverse prime progression - disadvantage triggers at these command counts
-# Formula: 100 - prime (for all primes up to 97)
-# This makes disadvantage increasingly frequent as you approach 100
-DISADVANTAGE_COUNTS=(2 3 5 7 11 13 17 19 23 29 31 37 41 43 47 53 57 59 63 69 71 77 81 83 87 89 93 95 97 98)
+# Three-tier fatigue system
+# Light fatigue: -1 to ability modifier
+LIGHT_FATIGUE_COUNTS=(11 13 17 19)
+
+# Heavy fatigue: no ability modifier
+HEAVY_FATIGUE_COUNTS=(22 41 58 71 82 89)
+
+# Exhausted: roll with disadvantage
+EXHAUSTED_COUNTS=(94 97 99)
 
 # Initialize fatigue file if it doesn't exist
 init_fatigue_file() {
@@ -66,30 +71,54 @@ reset_fatigue_counter() {
     mv "${FATIGUE_FILE}.tmp" "$FATIGUE_FILE"
 }
 
-# Check if current count triggers disadvantage
-is_disadvantaged() {
+# Check if current count triggers light fatigue
+is_light_fatigue() {
     local count=$(get_command_count)
 
-    # Check if count matches any disadvantage trigger
-    for trigger in "${DISADVANTAGE_COUNTS[@]}"; do
+    for trigger in "${LIGHT_FATIGUE_COUNTS[@]}"; do
         if [[ $count -eq $trigger ]]; then
-            return 0  # True - disadvantage applies
+            return 0  # True
         fi
     done
 
-    return 1  # False - no disadvantage
+    return 1  # False
 }
 
-# Get count until next disadvantage trigger (for display)
-get_next_disadvantage_count() {
+# Check if current count triggers heavy fatigue
+is_heavy_fatigue() {
     local count=$(get_command_count)
 
-    for trigger in "${DISADVANTAGE_COUNTS[@]}"; do
-        if [[ $trigger -gt $count ]]; then
-            echo $trigger
-            return
+    for trigger in "${HEAVY_FATIGUE_COUNTS[@]}"; do
+        if [[ $count -eq $trigger ]]; then
+            return 0  # True
         fi
     done
 
-    echo 100  # Next reset
+    return 1  # False
+}
+
+# Check if current count triggers exhausted state
+is_exhausted() {
+    local count=$(get_command_count)
+
+    for trigger in "${EXHAUSTED_COUNTS[@]}"; do
+        if [[ $count -eq $trigger ]]; then
+            return 0  # True
+        fi
+    done
+
+    return 1  # False
+}
+
+# Get fatigue level (returns: none, light, heavy, or exhausted)
+get_fatigue_level() {
+    if is_exhausted; then
+        echo "exhausted"
+    elif is_heavy_fatigue; then
+        echo "heavy"
+    elif is_light_fatigue; then
+        echo "light"
+    else
+        echo "none"
+    fi
 }

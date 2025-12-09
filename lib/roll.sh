@@ -58,16 +58,30 @@ roll_command() {
     local day_bonus=$(get_day_bonus)
     local day_name=$(get_day_name)
 
-    # Check if we're disadvantaged
-    local disadvantaged=false
-    if is_disadvantaged; then
-        disadvantaged=true
-    fi
+    # Check fatigue level
+    local fatigue_level=$(get_fatigue_level)
+    local fatigue_penalty=0
 
-    # Roll d20 (with or without disadvantage)
+    # Apply fatigue penalty to ability modifier
+    case "$fatigue_level" in
+        light)
+            fatigue_penalty=1
+            ability_mod=$((ability_mod - 1))
+            ;;
+        heavy)
+            fatigue_penalty=$ability_mod
+            ability_mod=0
+            ;;
+        exhausted)
+            # Disadvantage is applied to roll, not modifier
+            fatigue_penalty=0
+            ;;
+    esac
+
+    # Roll d20 (with or without disadvantage for exhausted state)
     local roll
     local roll_display=""
-    if $disadvantaged; then
+    if [[ "$fatigue_level" == "exhausted" ]]; then
         # Roll with disadvantage
         local disadvantage_result=$(roll_d20_disadvantage)
         local roll1=$(echo "$disadvantage_result" | cut -d: -f1 | cut -d, -f1)
@@ -119,13 +133,21 @@ roll_command() {
 
     # Display roll info to stderr (so it doesn't interfere with command output)
 
-    # Show disadvantage warning if applicable
-    if $disadvantaged; then
-        echo "⚠️  [FATIGUED - Rolling with disadvantage]" >&2
-        echo "🎲 $roll_display" >&2
-    else
-        echo "🎲 Rolled $roll_display" >&2
-    fi
+    # Show fatigue warning if applicable
+    case "$fatigue_level" in
+        light)
+            echo "😓 [Tired - Ability penalty -1]" >&2
+            ;;
+        heavy)
+            echo "😰 [Heavy Fatigue - No ability modifier]" >&2
+            ;;
+        exhausted)
+            echo "💀 [EXHAUSTED - Rolling with disadvantage]" >&2
+            ;;
+    esac
+
+    # Show roll
+    echo "🎲 Rolled $roll_display" >&2
 
     # Show modifiers and total
     if [[ $day_bonus -ne 0 ]]; then
