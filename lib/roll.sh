@@ -34,6 +34,49 @@ get_success_message() {
     fi
 }
 
+# Get failure message based on ability and distance from DC
+get_failure_message() {
+    local ability="$1"
+    local total="$2"
+    local dc=17
+
+    # Determine how close they were
+    if [[ $total -ge 15 ]]; then
+        # Close miss (15-16)
+        case "$ability" in
+            STR) echo "not quite strong enough" ;;
+            DEX) echo "just a bit too slow" ;;
+            CON) echo "your endurance wavers" ;;
+            INT) echo "almost figured it out" ;;
+            WIS) echo "your intuition wavers" ;;
+            CHA) echo "not quite persuasive enough" ;;
+            *) echo "so close" ;;
+        esac
+    elif [[ $total -ge 10 ]]; then
+        # Far miss (10-14)
+        case "$ability" in
+            STR) echo "your might falters" ;;
+            DEX) echo "your reflexes betray you" ;;
+            CON) echo "you lack the fortitude" ;;
+            INT) echo "your mind draws a blank" ;;
+            WIS) echo "your judgment fails" ;;
+            CHA) echo "your charm falls flat" ;;
+            *) echo "not quite there" ;;
+        esac
+    else
+        # Really far (< 10)
+        case "$ability" in
+            STR) echo "pathetically weak" ;;
+            DEX) echo "clumsy and slow" ;;
+            CON) echo "completely exhausted" ;;
+            INT) echo "utterly clueless" ;;
+            WIS) echo "foolishly unaware" ;;
+            CHA) echo "socially inept" ;;
+            *) echo "not even close" ;;
+        esac
+    fi
+}
+
 # Main roll wrapper
 roll_command() {
     local basic_cmd="$1"
@@ -146,18 +189,17 @@ roll_command() {
             ;;
     esac
 
-    # Show roll
-    echo "🎲 Rolled $roll_display" >&2
+    # Show roll with combined modifiers
+    local combined_bonus=$((ability_mod + day_bonus))
+    local bonus_sign=""
+    if [[ $combined_bonus -ge 0 ]]; then
+        bonus_sign="+"
+    fi
 
-    # Show modifiers and total
     if [[ $day_bonus -ne 0 ]]; then
-        local day_sign=""
-        if [[ $day_bonus -gt 0 ]]; then
-            day_sign="+"
-        fi
-        echo "   + $ability_mod (ability) ${day_sign}${day_bonus} ($day_name) = $total" >&2
+        echo "🎲 Rolled $roll_display ${bonus_sign}${combined_bonus} (ability and day bonus) = $total" >&2
     else
-        echo "   + $ability_mod (ability) = $total" >&2
+        echo "🎲 Rolled $roll_display ${bonus_sign}${combined_bonus} (ability) = $total" >&2
     fi
 
     # Execute command and format output
@@ -165,21 +207,13 @@ roll_command() {
         echo "💀 Natural 1! Your senses fail you..." >&2
         command "$basic_cmd" "${cmd_args[@]}" 2>&1 | format_output "nat1" "$CHAR_PRIMARY_ABILITY"
     elif [[ "$outcome" == "failure" ]]; then
-        echo "❌ Failed (need 17+)" >&2
+        echo "❌ Failed ($(get_failure_message "$CHAR_PRIMARY_ABILITY" "$total"))" >&2
         command "$basic_cmd" "${cmd_args[@]}" 2>&1 | format_output "failure" "$CHAR_PRIMARY_ABILITY"
     elif [[ "$outcome" == "success" ]]; then
-        if $use_fancy; then
-            echo "✓ Success (using $fancy_cmd)" >&2
-        else
-            echo "✓ Success ($fancy_cmd not installed, using $basic_cmd)" >&2
-        fi
+        echo "✓ Success" >&2
         command "$exec_cmd" "${cmd_args[@]}"
     elif [[ "$outcome" == "crit" ]]; then
-        if $use_fancy; then
-            echo "⭐ Critical success! (using $fancy_cmd)" >&2
-        else
-            echo "⭐ Critical success! ($fancy_cmd not installed, using $basic_cmd)" >&2
-        fi
+        echo "⭐ Critical success!" >&2
         command "$exec_cmd" "${cmd_args[@]}"
 
         # Show success message AFTER output
