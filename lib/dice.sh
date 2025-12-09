@@ -6,6 +6,20 @@ roll_d20() {
     echo $((RANDOM % 20 + 1))
 }
 
+# Roll with disadvantage (2d20, take lower)
+# Returns: "roll1,roll2:result" e.g., "14,8:8"
+roll_d20_disadvantage() {
+    local roll1=$((RANDOM % 20 + 1))
+    local roll2=$((RANDOM % 20 + 1))
+
+    local result=$roll1
+    if [[ $roll2 -lt $roll1 ]]; then
+        result=$roll2
+    fi
+
+    echo "${roll1},${roll2}:${result}"
+}
+
 # Roll a single d6
 roll_d6() {
     echo $((RANDOM % 6 + 1))
