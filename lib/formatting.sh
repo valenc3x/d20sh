@@ -137,21 +137,32 @@ apply_bad_formatting() {
     fi
 }
 
+# Apply color-only formatting (no text mutations)
+apply_color_only() {
+    local primary_ability="$1"
+    local colors=$(get_ability_colors "$primary_ability")
+
+    # Just apply colors, no text mutations
+    while IFS= read -r line; do
+        echo -e "\033[${colors}m${line}\033[0m"
+    done
+}
+
 # Format output based on outcome
 format_output() {
     local outcome="$1"
     local primary_ability="$2"
 
     case "$outcome" in
-        nat1)
-            # Truncate to last 2 lines
-            tail -n 2
-            ;;
-        failure)
-            # Apply bad colors and text mutations
+        nat1|failure_full)
+            # Bad color + text mutations (leetspeak + random caps)
             apply_bad_formatting "$primary_ability"
             ;;
-        plain|success|crit)
+        failure_color)
+            # Bad color only, no text mutations
+            apply_color_only "$primary_ability"
+            ;;
+        *)
             # Normal output
             cat
             ;;

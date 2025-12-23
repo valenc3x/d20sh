@@ -138,24 +138,32 @@ roll_command() {
 
     local total=$((roll + ability_mod + day_bonus))
 
-    # Determine outcome (DC 17)
+    # Determine outcome
     local outcome=""
     local use_fancy=false
     local show_message=false
 
     if [[ $roll -eq 1 ]]; then
         outcome="nat1"
-    elif [[ $roll -eq 20 ]] || [[ $total -ge 20 ]]; then
-        outcome="crit"
+    elif [[ $roll -eq 20 ]]; then
+        outcome="nat20"
         use_fancy=true
         show_message=true
         # Natural 20 resets fatigue
         reset_fatigue_counter
-    elif [[ $total -ge 17 ]]; then
-        outcome="success"
+    elif [[ $total -ge 20 ]]; then
+        outcome="crit"
         use_fancy=true
+        show_message=true
+    elif [[ $total -ge 15 ]]; then
+        outcome="success"
+        # Regular command, silent
+    elif [[ $total -ge 5 ]]; then
+        outcome="failure_color"
+        # Bad color only, no text mutations
     else
-        outcome="failure"
+        outcome="failure_full"
+        # Bad color + leetspeak
     fi
 
     # Increment command counter (unless it was a nat 20, which already reset it)
@@ -204,15 +212,18 @@ roll_command() {
 
     # Execute command and format output
     if [[ "$outcome" == "nat1" ]]; then
-        echo "💀 Natural 1! Your senses fail you..." >&2
+        echo "💀 Natural 1! $(get_failure_message "$CHAR_PRIMARY_ABILITY" "$total")" >&2
         command "$basic_cmd" "${cmd_args[@]}" 2>&1 | format_output "nat1" "$CHAR_PRIMARY_ABILITY"
-    elif [[ "$outcome" == "failure" ]]; then
+    elif [[ "$outcome" == "failure_full" ]]; then
         echo "❌ Failed ($(get_failure_message "$CHAR_PRIMARY_ABILITY" "$total"))" >&2
-        command "$basic_cmd" "${cmd_args[@]}" 2>&1 | format_output "failure" "$CHAR_PRIMARY_ABILITY"
+        command "$basic_cmd" "${cmd_args[@]}" 2>&1 | format_output "failure_full" "$CHAR_PRIMARY_ABILITY"
+    elif [[ "$outcome" == "failure_color" ]]; then
+        echo "❌ Failed ($(get_failure_message "$CHAR_PRIMARY_ABILITY" "$total"))" >&2
+        command "$basic_cmd" "${cmd_args[@]}" 2>&1 | format_output "failure_color" "$CHAR_PRIMARY_ABILITY"
     elif [[ "$outcome" == "success" ]]; then
-        echo "✓ Success" >&2
-        command "$exec_cmd" "${cmd_args[@]}"
-    elif [[ "$outcome" == "crit" ]]; then
+        # Silent success - no message
+        command "$basic_cmd" "${cmd_args[@]}"
+    elif [[ "$outcome" == "nat20" || "$outcome" == "crit" ]]; then
         echo "⭐ Critical success!" >&2
         command "$exec_cmd" "${cmd_args[@]}"
 
