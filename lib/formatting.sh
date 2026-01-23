@@ -58,23 +58,19 @@ apply_text_mutations() {
     echo "$text"
 }
 
-# Apply bad formatting to a single line
-format_bad_line() {
-    local line="$1"
-    local colors="$2"
-
-    # Apply text mutations
-    local mutated=$(apply_text_mutations "$line")
-
-    # Apply awful colors
-    echo -e "\033[${colors}m${mutated}\033[0m"
-}
-
-# Apply bad formatting to stdin with character budget
-apply_bad_formatting() {
+# Apply color-only formatting (no text mutations)
+apply_color_only() {
     local primary_ability="$1"
     local colors=$(get_ability_colors "$primary_ability")
 
+    # Just apply colors, no text mutations
+    while IFS= read -r line; do
+        echo -e "\033[${colors}m${line}\033[0m"
+    done
+}
+
+# Apply text mutations only (no color)
+apply_text_only() {
     # Read all input into an array
     local lines=()
     while IFS= read -r line; do
@@ -91,7 +87,7 @@ apply_bad_formatting() {
     # If under budget, format everything
     if [[ $total_chars -le $MAX_FORMAT_CHARS ]]; then
         for line in "${lines[@]}"; do
-            format_bad_line "$line" "$colors"
+            apply_text_mutations "$line"
         done
     else
         # Over budget - format first 25KB and last 25KB
@@ -100,7 +96,6 @@ apply_bad_formatting() {
         local first_section_end=0
         local last_section_start=$line_count
 
-        # Find where first section ends
         for ((i=0; i<line_count; i++)); do
             char_count=$((char_count + ${#lines[$i]}))
             if [[ $char_count -ge $half_budget ]]; then
@@ -109,7 +104,6 @@ apply_bad_formatting() {
             fi
         done
 
-        # Find where last section starts (count backwards)
         char_count=0
         for ((i=line_count-1; i>=0; i--)); do
             char_count=$((char_count + ${#lines[$i]}))
@@ -119,33 +113,19 @@ apply_bad_formatting() {
             fi
         done
 
-        # Format first section
         for ((i=0; i<=first_section_end; i++)); do
-            format_bad_line "${lines[$i]}" "$colors"
+            apply_text_mutations "${lines[$i]}"
         done
 
-        # Print signal loss message
         local skipped_lines=$((last_section_start - first_section_end - 1))
         if [[ $skipped_lines -gt 0 ]]; then
-            echo -e "\033[${colors}m[... $skipped_lines lines of corrupted data lost to the void ...]\033[0m"
+            echo "[... $skipped_lines lines of corrupted data lost to the void ...]"
         fi
 
-        # Format last section
         for ((i=last_section_start; i<line_count; i++)); do
-            format_bad_line "${lines[$i]}" "$colors"
+            apply_text_mutations "${lines[$i]}"
         done
     fi
-}
-
-# Apply color-only formatting (no text mutations)
-apply_color_only() {
-    local primary_ability="$1"
-    local colors=$(get_ability_colors "$primary_ability")
-
-    # Just apply colors, no text mutations
-    while IFS= read -r line; do
-        echo -e "\033[${colors}m${line}\033[0m"
-    done
 }
 
 # Format output based on outcome
@@ -154,11 +134,11 @@ format_output() {
     local primary_ability="$2"
 
     case "$outcome" in
-        nat1|failure_full)
-            # Bad color + text mutations (leetspeak + random caps)
-            apply_bad_formatting "$primary_ability"
+        letter_swap)
+            # Text mutations only (leetspeak + random caps), no color
+            apply_text_only
             ;;
-        failure_color)
+        color_swap)
             # Bad color only, no text mutations
             apply_color_only "$primary_ability"
             ;;
