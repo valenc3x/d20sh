@@ -5,25 +5,6 @@
 source "$(dirname "${BASH_SOURCE[0]}")/dice.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/character.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/formatting.sh"
-source "$(dirname "${BASH_SOURCE[0]}")/fatigue.sh"
-
-# Get day of week bonus
-get_day_bonus() {
-    local day=$(date +%u)  # 1=Monday, 7=Sunday
-
-    case "$day" in
-        1|5) echo 2 ;;   # Monday, Friday: +2
-        2|4) echo 1 ;;   # Tuesday, Thursday: +1
-        3)   echo 0 ;;   # Wednesday: +0
-        6|7) echo -3 ;;  # Saturday, Sunday: -3
-        *) echo 0 ;;
-    esac
-}
-
-# Get day name for display
-get_day_name() {
-    date +%A
-}
 
 # Get random success message
 get_success_message() {
@@ -34,47 +15,19 @@ get_success_message() {
     fi
 }
 
-# Get failure message based on ability and distance from DC
+# Get failure message based on ability
 get_failure_message() {
     local ability="$1"
-    local total="$2"
-    local dc=17
 
-    # Determine how close they were
-    if [[ $total -ge 15 ]]; then
-        # Close miss (15-16)
-        case "$ability" in
-            STR) echo "not quite strong enough" ;;
-            DEX) echo "just a bit too slow" ;;
-            CON) echo "your endurance wavers" ;;
-            INT) echo "almost figured it out" ;;
-            WIS) echo "your intuition wavers" ;;
-            CHA) echo "not quite persuasive enough" ;;
-            *) echo "so close" ;;
-        esac
-    elif [[ $total -ge 10 ]]; then
-        # Far miss (10-14)
-        case "$ability" in
-            STR) echo "your might falters" ;;
-            DEX) echo "your reflexes betray you" ;;
-            CON) echo "you lack the fortitude" ;;
-            INT) echo "your mind draws a blank" ;;
-            WIS) echo "your judgment fails" ;;
-            CHA) echo "your charm falls flat" ;;
-            *) echo "not quite there" ;;
-        esac
-    else
-        # Really far (< 10)
-        case "$ability" in
-            STR) echo "pathetically weak" ;;
-            DEX) echo "clumsy and slow" ;;
-            CON) echo "completely exhausted" ;;
-            INT) echo "utterly clueless" ;;
-            WIS) echo "foolishly unaware" ;;
-            CHA) echo "socially inept" ;;
-            *) echo "not even close" ;;
-        esac
-    fi
+    case "$ability" in
+        STR) echo "your might falters" ;;
+        DEX) echo "your reflexes betray you" ;;
+        CON) echo "your endurance fails" ;;
+        INT) echo "your mind draws a blank" ;;
+        WIS) echo "your judgment fails" ;;
+        CHA) echo "your charm falls flat" ;;
+        *) echo "the command fizzles" ;;
+    esac
 }
 
 # Main roll wrapper
@@ -93,82 +46,31 @@ roll_command() {
         return
     fi
 
-    # Check for daily reset
-    check_daily_reset
-
-    # Get modifiers
+    # Get ability modifier
     local ability_mod=$(get_primary_ability_modifier)
-    local day_bonus=$(get_day_bonus)
-    local day_name=$(get_day_name)
 
-    # Check fatigue level
-    local fatigue_level=$(get_fatigue_level)
-    local fatigue_penalty=0
-
-    # Apply fatigue penalty to ability modifier
-    case "$fatigue_level" in
-        light)
-            fatigue_penalty=1
-            ability_mod=$((ability_mod - 1))
-            ;;
-        heavy)
-            fatigue_penalty=$ability_mod
-            ability_mod=0
-            ;;
-        exhausted)
-            # Disadvantage is applied to roll, not modifier
-            fatigue_penalty=0
-            ;;
-    esac
-
-    # Roll d20 (with or without disadvantage for exhausted state)
-    local roll
-    local roll_display=""
-    if [[ "$fatigue_level" == "exhausted" ]]; then
-        # Roll with disadvantage
-        local disadvantage_result=$(roll_d20_disadvantage)
-        local roll1=$(echo "$disadvantage_result" | cut -d: -f1 | cut -d, -f1)
-        local roll2=$(echo "$disadvantage_result" | cut -d: -f1 | cut -d, -f2)
-        roll=$(echo "$disadvantage_result" | cut -d: -f2)
-        roll_display="Roll 1: $roll1, Roll 2: $roll2 → Taking $roll"
-    else
-        roll=$(roll_d20)
-        roll_display="$roll"
-    fi
-
-    local total=$((roll + ability_mod + day_bonus))
+    # Roll d20
+    local roll=$(roll_d20)
+    local total=$((roll + ability_mod))
 
     # Determine outcome
     local outcome=""
     local use_fancy=false
-    local show_message=false
 
     if [[ $roll -eq 1 ]]; then
         outcome="nat1"
     elif [[ $roll -eq 20 ]]; then
         outcome="nat20"
         use_fancy=true
-        show_message=true
-        # Natural 20 resets fatigue
-        reset_fatigue_counter
     elif [[ $total -ge 20 ]]; then
-        outcome="crit"
+        outcome="fancy"
         use_fancy=true
-        show_message=true
-    elif [[ $total -ge 15 ]]; then
-        outcome="success"
-        # Regular command, silent
-    elif [[ $total -ge 5 ]]; then
-        outcome="failure_color"
-        # Bad color only, no text mutations
+    elif [[ $total -ge 11 ]]; then
+        outcome="normal"
+    elif [[ $total -ge 6 ]]; then
+        outcome="color_swap"
     else
-        outcome="failure_full"
-        # Bad color + leetspeak
-    fi
-
-    # Increment command counter (unless it was a nat 20, which already reset it)
-    if [[ $roll -ne 20 ]]; then
-        increment_command_count > /dev/null
+        outcome="letter_swap"
     fi
 
     # Check if fancy command is available
@@ -182,53 +84,27 @@ roll_command() {
         exec_cmd="$fancy_cmd"
     fi
 
-    # Display roll info to stderr (so it doesn't interfere with command output)
-
-    # Show fatigue warning if applicable
-    case "$fatigue_level" in
-        light)
-            echo "😓 [Tired - Ability penalty -1]" >&2
-            ;;
-        heavy)
-            echo "😰 [Heavy Fatigue - No ability modifier]" >&2
-            ;;
-        exhausted)
-            echo "💀 [EXHAUSTED - Rolling with disadvantage]" >&2
-            ;;
-    esac
-
-    # Show roll with combined modifiers
-    local combined_bonus=$((ability_mod + day_bonus))
+    # Display roll info to stderr
     local bonus_sign=""
-    if [[ $combined_bonus -ge 0 ]]; then
+    if [[ $ability_mod -ge 0 ]]; then
         bonus_sign="+"
     fi
-
-    if [[ $day_bonus -ne 0 ]]; then
-        echo "🎲 Rolled $roll_display ${bonus_sign}${combined_bonus} (ability and day bonus) = $total" >&2
-    else
-        echo "🎲 Rolled $roll_display ${bonus_sign}${combined_bonus} (ability) = $total" >&2
-    fi
+    echo "d20: $roll ${bonus_sign}${ability_mod} = $total" >&2
 
     # Execute command and format output
     if [[ "$outcome" == "nat1" ]]; then
-        echo "💀 Natural 1! $(get_failure_message "$CHAR_PRIMARY_ABILITY" "$total")" >&2
-        command "$basic_cmd" "${cmd_args[@]}" 2>&1 | format_output "nat1" "$CHAR_PRIMARY_ABILITY"
-    elif [[ "$outcome" == "failure_full" ]]; then
-        echo "❌ Failed ($(get_failure_message "$CHAR_PRIMARY_ABILITY" "$total"))" >&2
-        command "$basic_cmd" "${cmd_args[@]}" 2>&1 | format_output "failure_full" "$CHAR_PRIMARY_ABILITY"
-    elif [[ "$outcome" == "failure_color" ]]; then
-        echo "❌ Failed ($(get_failure_message "$CHAR_PRIMARY_ABILITY" "$total"))" >&2
-        command "$basic_cmd" "${cmd_args[@]}" 2>&1 | format_output "failure_color" "$CHAR_PRIMARY_ABILITY"
-    elif [[ "$outcome" == "success" ]]; then
-        # Silent success - no message
+        echo "Natural 1! $(get_failure_message "$CHAR_PRIMARY_ABILITY")" >&2
+    elif [[ "$outcome" == "letter_swap" ]]; then
+        command "$basic_cmd" "${cmd_args[@]}" 2>&1 | format_output "letter_swap" "$CHAR_PRIMARY_ABILITY"
+    elif [[ "$outcome" == "color_swap" ]]; then
+        command "$basic_cmd" "${cmd_args[@]}" 2>&1 | format_output "color_swap" "$CHAR_PRIMARY_ABILITY"
+    elif [[ "$outcome" == "normal" ]]; then
         command "$basic_cmd" "${cmd_args[@]}"
-    elif [[ "$outcome" == "nat20" || "$outcome" == "crit" ]]; then
-        echo "⭐ Critical success!" >&2
+    elif [[ "$outcome" == "nat20" ]]; then
         command "$exec_cmd" "${cmd_args[@]}"
-
-        # Show success message AFTER output
         echo "" >&2
         echo "$(get_success_message)" >&2
+    elif [[ "$outcome" == "fancy" ]]; then
+        command "$exec_cmd" "${cmd_args[@]}"
     fi
 }
