@@ -84,16 +84,38 @@ roll_command() {
         exec_cmd="$fancy_cmd"
     fi
 
+    # ANSI color codes
+    local reset="\033[0m"
+    local bold="\033[1m"
+    local dim="\033[2m"
+    local red="\033[31m"
+    local green="\033[32m"
+    local yellow="\033[33m"
+    local cyan="\033[36m"
+    local white="\033[37m"
+
     # Display roll info to stderr
     local bonus_sign=""
     if [[ $ability_mod -ge 0 ]]; then
         bonus_sign="+"
     fi
-    echo "d20: $roll ${bonus_sign}${ability_mod} = $total" >&2
+
+    if [[ "$outcome" == "nat1" ]]; then
+        echo -e "${bold}${CHAR_NAME}${reset} rolled a ${red}nat 1${reset} for ${cyan}${basic_cmd}${reset}!" >&2
+        echo -e "${dim}$(get_failure_message "$CHAR_PRIMARY_ABILITY")${reset}" >&2
+        echo -e "Using ${bold}${basic_cmd}${reset}" >&2
+    elif [[ "$outcome" == "nat20" ]]; then
+        echo -e "${bold}${CHAR_NAME}${reset} rolled a ${yellow}nat 20${reset} for ${cyan}${basic_cmd}${reset}!" >&2
+        echo -e "${dim}$(get_success_message)${reset}" >&2
+        echo -e "Using ${bold}${green}${exec_cmd}${reset}" >&2
+    else
+        echo -e "${bold}${CHAR_NAME}${reset} rolled a ${white}${roll}${reset} ${dim}(${bonus_sign}${ability_mod} ${CHAR_PRIMARY_ABILITY})${reset} for ${cyan}${basic_cmd}${reset}!" >&2
+        echo -e "Using ${bold}$(if $use_fancy; then echo "${green}${exec_cmd}"; else echo "${exec_cmd}"; fi)${reset}" >&2
+    fi
 
     # Execute command and format output
     if [[ "$outcome" == "nat1" ]]; then
-        echo "Natural 1! $(get_failure_message "$CHAR_PRIMARY_ABILITY")" >&2
+        :
     elif [[ "$outcome" == "letter_swap" ]]; then
         command "$basic_cmd" "${cmd_args[@]}" 2>&1 | format_output "letter_swap" "$CHAR_PRIMARY_ABILITY"
     elif [[ "$outcome" == "color_swap" ]]; then
@@ -102,8 +124,6 @@ roll_command() {
         command "$basic_cmd" "${cmd_args[@]}"
     elif [[ "$outcome" == "nat20" ]]; then
         command "$exec_cmd" "${cmd_args[@]}"
-        echo "" >&2
-        echo "$(get_success_message)" >&2
     elif [[ "$outcome" == "fancy" ]]; then
         command "$exec_cmd" "${cmd_args[@]}"
     fi
