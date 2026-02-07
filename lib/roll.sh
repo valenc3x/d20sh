@@ -30,6 +30,24 @@ get_failure_message() {
     esac
 }
 
+# Get critical failure message for nat 1 (command not executed)
+get_crit_fail_message() {
+    local messages=(
+        "Critical failure! Your command vanishes into the void. The terminal gods demand a retry."
+        "Nat 1! You fumble the incantation. The command refuses to execute."
+        "The dungeon trembles... your command scroll crumbles to dust before you can read it."
+        "A spectral hand swats your command away. The shell rejects your offering."
+        "Your fingers betray you — the command misfires into the aether. Nothing happens."
+        "The dice clatter ominously. Your command fizzles before it leaves your lips."
+        "A rift in the terminal swallows your command whole. Try again, adventurer."
+        "The RNG gods laugh. Your command was lost to the shadow realm."
+        "Fumble! You cast your command into the wrong plane of existence."
+        "The cursor blinks mockingly. Your command never stood a chance."
+    )
+    local index=$((RANDOM % ${#messages[@]}))
+    echo "${messages[$index]}"
+}
+
 # Main roll wrapper
 roll_command() {
     local basic_cmd="$1"
@@ -114,7 +132,7 @@ roll_command() {
     if [[ "$outcome" == "nat1" ]]; then
         echo -e "  ${bold}${char_title}${reset} rolled a ${red}nat 1${reset} for ${cyan}${basic_cmd}${reset}!" >&2
         echo -e "  ${dim}$(get_failure_message "$CHAR_PRIMARY_ABILITY")${reset}" >&2
-        echo -e "  Using ${bold}${basic_cmd}${reset}" >&2
+        echo -e "  ${red}Command not executed!${reset}" >&2
     elif [[ "$outcome" == "nat20" ]]; then
         echo -e "  ${bold}${char_title}${reset} rolled a ${yellow}nat 20${reset} for ${cyan}${basic_cmd}${reset}!" >&2
         echo -e "  ${dim}$(get_success_message)${reset}" >&2
@@ -127,7 +145,7 @@ roll_command() {
 
     # Execute command and format output
     if [[ "$outcome" == "nat1" ]]; then
-        :
+        echo -e "\n  ${red}$(get_crit_fail_message)${reset}\n" >&2
     elif [[ "$outcome" == "letter_swap" ]]; then
         command "$basic_cmd" "${cmd_args[@]}" 2>&1 | format_output "letter_swap" "$CHAR_PRIMARY_ABILITY"
     elif [[ "$outcome" == "color_swap" ]]; then
