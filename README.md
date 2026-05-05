@@ -2,19 +2,18 @@
 
 A D&D-inspired terminal enhancement that gamifies command execution. Roll for init!
 
-Your terminal character has ability scores (STR, DEX, CON, INT, WIS, CHA) that affect command success rates through d20 rolls. Success means you get fancy modern CLI tools; failure means you suffer through basic versions with awful formatting.
+Your terminal character has ability scores (STR, DEX, CON, INT, WIS, CHA) that affect command success rates through d20 rolls. Success means you get fancy modern CLI tools; failure means truncated output and flavorful flavor text.
 
 ## ✨ Features
 
 - **Character Creation**: Roll 4d6 drop lowest for ability scores, choose your class
-- **D20 Roll Mechanics**: Every command rolls d20 + ability modifier + day-of-week bonus
-- **Day-of-Week Bonuses**: Motivation on Monday/Friday, harsh penalties on weekends
+- **D20 Roll Mechanics**: Every command rolls d20 + primary ability modifier
 - **Success/Failure System**:
-  - Natural 1: Output truncated to 2 lines
-  - 2-10: Basic command with terrible colors
-  - 11-12: Basic command, no formatting (barely made it!)
-  - 13-19: Fancy command (bat, lsd, fd, etc.)
-  - Natural 20 or 21+: Fancy command + epic success message
+  - Natural 1: Command not executed; flavorful failure message
+  - Total 2-6: Basic command, output truncated to last 10 lines + partial-failure message
+  - Total 7-14: Basic command, normal output
+  - Total 15-19: Fancy command (bat, lsd, fd, etc.)
+  - Natural 20: Fancy command + epic success message
 - **Fancy Tool Integration**: Automatically uses modern CLI alternatives when you succeed
 
 ## 🎮 Quick Start
@@ -69,20 +68,14 @@ export PATH="$HOME/.local/bin:$PATH"
 
 ### Roll Mechanics
 
-Every command rolls: **d20 + primary_ability_modifier + day_of_week_bonus**
-
-**Day-of-Week Bonuses:**
-- Weekend (Sat/Sun): **-3** (discourages weekend work!)
-- Monday/Friday: **+2** (motivation boost)
-- Tuesday/Thursday: **+1**
-- Wednesday: **+0** (hump day)
+Every command rolls: **d20 + primary_ability_modifier** vs DC 15.
 
 **Outcomes:**
-- **Natural 1**: Critical failure, output truncated to last 2 lines
-- **Total 2-10**: Failure, basic command with awful colors (based on your primary ability)
-- **Total 11-12**: Barely made it, basic command without colors
-- **Total 13-19**: Success, fancy command (if installed)
-- **Natural 20 or Total 20+**: Critical success, fancy command + random success message
+- **Natural 1**: Command not executed; random failure message
+- **Total 2-6**: Basic command, piped through `tail -n 10`; random partial-failure message
+- **Total 7-14**: Basic command, normal output
+- **Total 15-19**: Fancy command (if installed)
+- **Natural 20**: Fancy command + random success message after output
 
 ### Classes & Primary Abilities
 
@@ -98,7 +91,7 @@ Ability modifiers use standard D&D formula: `(score - 10) / 2` rounded down
 
 ### Fancy Commands
 
-When you succeed (roll 13+), these modern tools are used instead:
+When you succeed (total 15+), these modern tools are used instead:
 
 | Basic | Fancy | Description |
 |-------|-------|-------------|
@@ -125,30 +118,31 @@ d20sh help              # Show help message
 
 ## 🎯 Examples
 
-### Character with +2 modifier on Monday (+2 day bonus = +4 total)
+### Mundane roll
 
 ```bash
 $ ls
-🎲 Rolled 15 + 2 (ability) +2 (Monday) = 19
-✓ Success (using lsd)
-[beautiful colorful directory listing]
+🎲 Rolled 11 + 2 (DEX) = 13
+Using ls
+[plain ls output]
 ```
 
-### Same character on Saturday (-3 day bonus = -1 total)
+### Partial failure (total 2-6)
 
 ```bash
 $ cat README.md
-🎲 Rolled 8 + 2 (ability) -3 (Saturday) = 7
-❌ Failed (need 11+)
-[output with terrible yellow-on-white colors]
+🎲 Rolled 3 + 2 (DEX) = 5
+The output escapes you. Only the tail remains.
+Using cat (last 10 lines only)
+[last 10 lines of the file]
 ```
 
 ### Natural 20!
 
 ```bash
 $ grep TODO *.md
-🎲 Rolled 20 + 2 (ability) +2 (Monday) = 24
-⭐ Critical success! (using rg)
+🎲 Rolled nat 20!
+Using rg
 [fast ripgrep results]
 
 The dice gods smile upon you. Command executed flawlessly.
@@ -179,24 +173,22 @@ You can manually edit ability scores, class, or name. Just don't break the JSON!
 
 ## 📊 Success Rate Calculator
 
-With DC thresholds at 11/13/20, your success rates:
+With thresholds at 7 (mundane) / 15 (fancy) / 20 (crit), your rough rates:
 
-| Modifier | Avoid Failure (11+) | Fancy Tools (13+) | Crit Success (20+) |
-|----------|---------------------|-------------------|---------------------|
-| -1 | 50% | 40% | 5% |
-| +0 | 50% | 40% | 5% |
-| +1 | 55% | 45% | 10% |
-| +2 | 60% | 50% | 15% |
-| +3 | 65% | 55% | 20% |
-
-Add day bonuses for the full picture!
+| Modifier | Avoid Partial-Fail (7+) | Fancy Tools (15+) | Nat 20 |
+|----------|-------------------------|-------------------|--------|
+| -1       | 65%                     | 25%               | 5%     |
+| +0       | 70%                     | 30%               | 5%     |
+| +1       | 75%                     | 35%               | 5%     |
+| +2       | 80%                     | 40%               | 5%     |
+| +3       | 85%                     | 45%               | 5%     |
 
 ## 🎨 Philosophy
 
 - **Simple to start**: Just `init` and `setup`
 - **Manually editable**: Character file is plain JSON
 - **Additive**: Doesn't break existing workflow
-- **Fun failure**: Bad formatting is annoying but not destructive
+- **Fun failure**: Truncated output and flavorful messages, never destructive or slow
 - **Rewarding success**: Modern tools are genuinely better
 - **Optional**: Easy to disable (just remove aliases)
 

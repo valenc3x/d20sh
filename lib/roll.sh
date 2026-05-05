@@ -4,9 +4,11 @@
 # Source required libraries
 source "$(dirname "${BASH_SOURCE[0]}")/dice.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/character.sh"
-source "$(dirname "${BASH_SOURCE[0]}")/formatting.sh"
 
-# Get random success message
+# Number of lines to keep on partial failure (2-6)
+PARTIAL_FAIL_TAIL_LINES=10
+
+# Get random success message (nat 20)
 get_success_message() {
     if [[ -n "$DATA_DIR" && -f "$DATA_DIR/success_messages.txt" ]]; then
         shuf -n 1 "$DATA_DIR/success_messages.txt"
@@ -15,37 +17,22 @@ get_success_message() {
     fi
 }
 
-# Get failure message based on ability
-get_failure_message() {
-    local ability="$1"
-
-    case "$ability" in
-        STR) echo "your might falters" ;;
-        DEX) echo "your reflexes betray you" ;;
-        CON) echo "your endurance fails" ;;
-        INT) echo "your mind draws a blank" ;;
-        WIS) echo "your judgment fails" ;;
-        CHA) echo "your charm falls flat" ;;
-        *) echo "the command fizzles" ;;
-    esac
+# Get random critical failure message (nat 1)
+get_crit_fail_message() {
+    if [[ -n "$DATA_DIR" && -f "$DATA_DIR/failure_messages.txt" ]]; then
+        shuf -n 1 "$DATA_DIR/failure_messages.txt"
+    else
+        echo "Critical fail! The command slips from your grasp."
+    fi
 }
 
-# Get critical failure message for nat 1 (command not executed)
-get_crit_fail_message() {
-    local messages=(
-        "Critical failure! Your command vanishes into the void. The terminal gods demand a retry."
-        "Nat 1! You fumble the incantation. The command refuses to execute."
-        "The dungeon trembles... your command scroll crumbles to dust before you can read it."
-        "A spectral hand swats your command away. The shell rejects your offering."
-        "Your fingers betray you — the command misfires into the aether. Nothing happens."
-        "The dice clatter ominously. Your command fizzles before it leaves your lips."
-        "A rift in the terminal swallows your command whole. Try again, adventurer."
-        "The RNG gods laugh. Your command was lost to the shadow realm."
-        "Fumble! You cast your command into the wrong plane of existence."
-        "The cursor blinks mockingly. Your command never stood a chance."
-    )
-    local index=$((RANDOM % ${#messages[@]}))
-    echo "${messages[$index]}"
+# Get random partial failure message (2-6)
+get_partial_fail_message() {
+    if [[ -n "$DATA_DIR" && -f "$DATA_DIR/partial_failure_messages.txt" ]]; then
+        shuf -n 1 "$DATA_DIR/partial_failure_messages.txt"
+    else
+        echo "The output escapes you. Only the tail remains."
+    fi
 }
 
 # Main roll wrapper
@@ -72,6 +59,11 @@ roll_command() {
     local total=$((roll + ability_mod))
 
     # Determine outcome
+    #   nat 1                -> skip execution + failure message
+    #   total 2-6            -> basic + tail -n 10 + partial-failure message
+    #   total 7-14           -> basic command, normal output
+    #   total 15-19          -> fancy command (fallback to basic if missing)
+    #   nat 20               -> fancy command + success message after output
     local outcome=""
     local use_fancy=false
 
@@ -80,29 +72,26 @@ roll_command() {
     elif [[ $roll -eq 20 ]]; then
         outcome="nat20"
         use_fancy=true
-    elif [[ $total -ge 20 ]]; then
+    elif [[ $total -ge 15 ]]; then
         outcome="fancy"
         use_fancy=true
-    elif [[ $total -ge 11 ]]; then
-        outcome="normal"
-    elif [[ $total -ge 6 ]]; then
-        outcome="color_swap"
+    elif [[ $total -ge 7 ]]; then
+        outcome="mundane"
     else
-        outcome="letter_swap"
+        outcome="partial"
     fi
 
-    # Check if fancy command is available
+    # Check if fancy command is available; fall back to basic if not
     if $use_fancy && ! command -v "$fancy_cmd" &> /dev/null; then
         use_fancy=false
     fi
 
-    # Determine which command to execute
     local exec_cmd="$basic_cmd"
     if $use_fancy; then
         exec_cmd="$fancy_cmd"
     fi
 
-    # ANSI color codes
+    # ANSI color codes for header
     local reset="\033[0m"
     local bold="\033[1m"
     local dim="\033[2m"
@@ -120,7 +109,6 @@ roll_command() {
         char_title="${char_title}, ${CHAR_CLASS}"
     fi
 
-    # Display roll info to stderr
     local bonus_sign=""
     if [[ $ability_mod -ge 0 ]]; then
         bonus_sign="+"
@@ -128,33 +116,46 @@ roll_command() {
 
     local line="${dim}─────────────────────────────────────────────────────${reset}"
 
+    # Display roll info to stderr
     echo -e "⚔ ${line}" >&2
-    if [[ "$outcome" == "nat1" ]]; then
-        echo -e "  ${bold}${char_title}${reset} rolled a ${red}nat 1${reset} for ${cyan}${basic_cmd}${reset}!" >&2
-        echo -e "  ${dim}$(get_failure_message "$CHAR_PRIMARY_ABILITY")${reset}" >&2
-        echo -e "  ${red}Command not executed!${reset}" >&2
-    elif [[ "$outcome" == "nat20" ]]; then
-        echo -e "  ${bold}${char_title}${reset} rolled a ${yellow}nat 20${reset} for ${cyan}${basic_cmd}${reset}!" >&2
-        echo -e "  ${dim}$(get_success_message)${reset}" >&2
-        echo -e "  Using ${bold}${green}${exec_cmd}${reset}" >&2
-    else
-        echo -e "  ${bold}${char_title}${reset} rolled a ${white}${roll}${reset} ${dim}(${bonus_sign}${ability_mod} ${CHAR_PRIMARY_ABILITY})${reset} for ${cyan}${basic_cmd}${reset}!" >&2
-        echo -e "  Using ${bold}$(if $use_fancy; then echo "${green}${exec_cmd}"; else echo "${exec_cmd}"; fi)${reset}" >&2
-    fi
+    case "$outcome" in
+        nat1)
+            echo -e "  ${bold}${char_title}${reset} rolled a ${red}nat 1${reset} for ${cyan}${basic_cmd}${reset}!" >&2
+            echo -e "  ${red}Command not executed!${reset}" >&2
+            ;;
+        nat20)
+            echo -e "  ${bold}${char_title}${reset} rolled a ${yellow}nat 20${reset} for ${cyan}${basic_cmd}${reset}!" >&2
+            echo -e "  Using ${bold}${green}${exec_cmd}${reset}" >&2
+            ;;
+        partial)
+            echo -e "  ${bold}${char_title}${reset} rolled a ${white}${roll}${reset} ${dim}(${bonus_sign}${ability_mod} ${CHAR_PRIMARY_ABILITY})${reset} for ${cyan}${basic_cmd}${reset}!" >&2
+            echo -e "  ${dim}$(get_partial_fail_message)${reset}" >&2
+            echo -e "  Using ${bold}${exec_cmd}${reset} ${dim}(last ${PARTIAL_FAIL_TAIL_LINES} lines only)${reset}" >&2
+            ;;
+        *)
+            echo -e "  ${bold}${char_title}${reset} rolled a ${white}${roll}${reset} ${dim}(${bonus_sign}${ability_mod} ${CHAR_PRIMARY_ABILITY})${reset} for ${cyan}${basic_cmd}${reset}!" >&2
+            echo -e "  Using ${bold}$(if $use_fancy; then echo "${green}${exec_cmd}"; else echo "${exec_cmd}"; fi)${reset}" >&2
+            ;;
+    esac
     echo -e "${line}" >&2
 
-    # Execute command and format output
-    if [[ "$outcome" == "nat1" ]]; then
-        echo -e "\n  ${red}$(get_crit_fail_message)${reset}\n" >&2
-    elif [[ "$outcome" == "letter_swap" ]]; then
-        command "$basic_cmd" "${cmd_args[@]}" 2>&1 | format_output "letter_swap" "$CHAR_PRIMARY_ABILITY"
-    elif [[ "$outcome" == "color_swap" ]]; then
-        command "$basic_cmd" "${cmd_args[@]}" 2>&1 | format_output "color_swap" "$CHAR_PRIMARY_ABILITY"
-    elif [[ "$outcome" == "normal" ]]; then
-        command "$basic_cmd" "${cmd_args[@]}"
-    elif [[ "$outcome" == "nat20" ]]; then
-        command "$exec_cmd" "${cmd_args[@]}"
-    elif [[ "$outcome" == "fancy" ]]; then
-        command "$exec_cmd" "${cmd_args[@]}"
-    fi
+    # Execute command per outcome
+    case "$outcome" in
+        nat1)
+            echo -e "\n  ${red}$(get_crit_fail_message)${reset}\n" >&2
+            ;;
+        partial)
+            command "$basic_cmd" "${cmd_args[@]}" 2>&1 | tail -n "$PARTIAL_FAIL_TAIL_LINES"
+            ;;
+        mundane)
+            command "$basic_cmd" "${cmd_args[@]}"
+            ;;
+        fancy)
+            command "$exec_cmd" "${cmd_args[@]}"
+            ;;
+        nat20)
+            command "$exec_cmd" "${cmd_args[@]}"
+            echo -e "\n  ${yellow}$(get_success_message)${reset}\n" >&2
+            ;;
+    esac
 }
