@@ -62,43 +62,48 @@ Location: `~/.config/d20sh/character.json`
 ### Outcomes
 
 **Natural 1 (Critical Fail):**
-- Command executes but output is truncated to last 2 lines only
+- Command does NOT execute
+- Print a random failure message instead
 - Overrides any modifiers
 
-**2-14 (Modified Total < 15) - Failure:**
-- Commands with fancy versions: use basic version + bad formatting
-- Commands without fancy versions: apply bad formatting only
+**2-6 (Modified Total) - Partial Failure:**
+- Execute basic command, pipe to `tail -n 10` (last 10 lines only)
+- Print a random partial-failure message
+- No text mutation, no color formatting
 
-**15+ (Success):**
-- Use fancy version of command
+**7-14 (Modified Total) - Mundane:**
+- Execute basic command with normal output
+- No fancy version, no formatting
+
+**15-19 (Modified Total) - Success:**
+- Use fancy version of command (fallback to basic if not installed)
 - Clean, normal output
 
 **Natural 20 (Critical Success):**
 - Use fancy version of command
 - Print random success message AFTER output (so it's visible)
 
-### Bad Formatting (on Failure)
+### Failure Messages (Nat 1)
 
-Applied to all failed rolls. Two components:
+Random selection from pool:
+```
+"Critical fail! The command slips from your grasp."
+"Natural 1! Your fingers fumble on the keys."
+"Disaster! The command vanishes into the void."
+"You roll a 1. The terminal mocks you in silence."
+"Catastrophic failure! Try again, brave adventurer."
+```
 
-**1. Text Mutation (pick one randomly):**
-- Leetspeak: `e→3, a→4, o→0, i→1, s→5, t→7`
-- Random capitalization: flip coin per character
+### Partial Failure Messages (2-6)
 
-**2. Ability-Specific Color Combo:**
-
-Each ability has an awful color scheme (ANSI codes):
-
-- **STR:** Red on magenta `\033[31m\033[45m`
-- **DEX:** Dark blue on black `\033[34m\033[40m`
-- **CON:** Dark gray on white `\033[90m\033[107m`
-- **INT:** Yellow on white `\033[93m\033[107m`
-- **WIS:** Green on cyan `\033[32m\033[46m`
-- **CHA:** Bright magenta on bright yellow `\033[95m\033[103m`
-
-Use the player's primary ability to determine which color combo to apply.
-
-Reset with `\033[0m` after output.
+Random selection from pool:
+```
+"A glancing blow — only fragments of output survive."
+"The spell fizzles. You catch only the last few lines."
+"Partial success at best. The full scroll is lost."
+"Your concentration wavers — output truncated."
+"The output escapes you. Only the tail remains."
+```
 
 ### Success Messages (Nat 20)
 
@@ -121,7 +126,7 @@ Display AFTER command output.
 ## Command Pairs
 
 ### Commands with Fancy Versions
-Success (≥15) uses fancy version, failure uses basic + bad formatting:
+Success (15+) uses fancy version, mundane (7-14) uses basic, partial failure (2-6) uses basic with `tail -n 10`, nat 1 skips execution:
 
 - `man` → `tldr`
 - `cat` → `bat`
@@ -134,7 +139,7 @@ Success (≥15) uses fancy version, failure uses basic + bad formatting:
 - `top` → `htop` or `btop`
 
 ### Commands with No Fancy Version
-Just apply bad formatting on failure:
+Always run basic version on success/mundane; truncate to last 10 lines on partial failure; skip on nat 1:
 
 - `git log`
 - `git status`
@@ -201,11 +206,12 @@ The actual command wrapper:
 3. Roll d20 (random 1-20)
 4. Calculate: `roll + modifier`
 5. Determine outcome:
-   - Natural 1: Execute basic command, pipe to `tail -n 2`
-   - < 15: Execute basic command, apply bad formatting
-   - ≥ 15: Execute fancy command (if available), normal output
+   - Natural 1: Skip execution, print random failure message
+   - 2-6 (total): Execute basic command, pipe to `tail -n 10`, print random partial-failure message
+   - 7-14 (total): Execute basic command, normal output
+   - 15-19 (total): Execute fancy command (if available), normal output
    - Natural 20: Execute fancy command, append random success message
-6. Execute command with appropriate formatting
+6. Execute command with appropriate behavior
 
 ## Implementation Notes
 
@@ -222,9 +228,11 @@ Recommend: Bash or Python
 ### File Structure
 ```
 ~/.config/d20sh/
-├── character.json          # Character data
-├── roll.sh or roll.py      # Main roll wrapper
-└── success_messages.txt    # Pool of nat 20 messages
+├── character.json              # Character data
+├── roll.sh or roll.py          # Main roll wrapper
+├── success_messages.txt        # Pool of nat 20 messages
+├── failure_messages.txt        # Pool of nat 1 messages
+└── partial_failure_messages.txt # Pool of 2-6 messages
 ```
 
 ### Shell Detection
@@ -254,6 +262,6 @@ Check `$SHELL` or `$0` to determine .bashrc vs .zshrc
 - **Simple to start:** Just run `init` and `setup`
 - **Manually editable:** Character file is plain JSON
 - **Additive:** Doesn't break existing workflow
-- **Fun failure:** Bad formatting is annoying but not destructive
+- **Fun failure:** Truncated output and flavorful messages, never destructive or slow
 - **Rewarding success:** Modern tools are genuinely better
 - **Optional:** Easy to disable (just remove aliases)
