@@ -19,6 +19,8 @@ echo "Copying files..."
 cp bin/d20sh "$BIN_DIR/d20sh"
 cp lib/*.sh "$SHARE_DIR/lib/"
 cp data/success_messages.txt "$SHARE_DIR/data/"
+cp data/failure_messages.txt "$SHARE_DIR/data/"
+cp data/partial_failure_messages.txt "$SHARE_DIR/data/"
 
 # Make executable
 chmod +x "$BIN_DIR/d20sh"
