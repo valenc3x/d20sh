@@ -8,10 +8,18 @@ source "$(dirname "${BASH_SOURCE[0]}")/character.sh"
 # Number of lines to keep on partial failure (2-6)
 PARTIAL_FAIL_TAIL_LINES=10
 
+# Pick a random non-empty line from a file. Portable across macOS and Linux
+# (shuf is GNU-only and not present on macOS by default).
+pick_random_line() {
+    awk 'BEGIN { srand() }
+         /[^[:space:]]/ { lines[++n] = $0 }
+         END { if (n > 0) print lines[int(rand() * n) + 1] }' "$1"
+}
+
 # Get random success message (nat 20)
 get_success_message() {
     if [[ -n "$DATA_DIR" && -f "$DATA_DIR/success_messages.txt" ]]; then
-        shuf -n 1 "$DATA_DIR/success_messages.txt"
+        pick_random_line "$DATA_DIR/success_messages.txt"
     else
         echo "Critical success! The dice gods smile upon you."
     fi
@@ -20,7 +28,7 @@ get_success_message() {
 # Get random critical failure message (nat 1)
 get_crit_fail_message() {
     if [[ -n "$DATA_DIR" && -f "$DATA_DIR/failure_messages.txt" ]]; then
-        shuf -n 1 "$DATA_DIR/failure_messages.txt"
+        pick_random_line "$DATA_DIR/failure_messages.txt"
     else
         echo "Critical fail! The command slips from your grasp."
     fi
@@ -29,7 +37,7 @@ get_crit_fail_message() {
 # Get random partial failure message (2-6)
 get_partial_fail_message() {
     if [[ -n "$DATA_DIR" && -f "$DATA_DIR/partial_failure_messages.txt" ]]; then
-        shuf -n 1 "$DATA_DIR/partial_failure_messages.txt"
+        pick_random_line "$DATA_DIR/partial_failure_messages.txt"
     else
         echo "The output escapes you. Only the tail remains."
     fi
